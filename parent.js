@@ -22,7 +22,7 @@
       '<div class="par-grid"><section class="card" data-tag="P1"><h2>' + t('par.latest') + '</h2>' + result + '</section>' +
       '<section class="card"><h2>' + t('res.practise') + '</h2>' + things + '</section>' +
       '<section class="card"><h2>' + t('par.flags') + '</h2>' + flag + '</section>' +
-      '<section class="card wide2" data-tag="S6"><h2>' + t('par.progress') + '</h2>' + App.progressChart('math') + '</section>' +
+      '<section class="card wide2" data-tag="S6"><h2>' + t('par.progress') + '</h2>' + App.progressChart('math', undefined, undefined, shown) + '</section>' +
       '<section class="card" data-tag="X8"><h2>' + t('par.weekly') + '</h2>' + weekly + '<a class="btn ghost wide" href="#/w/report" target="_blank" rel="noopener" data-tag="X17">' + ic('print', 18) + t('par.print') + '</a></section></div>';
   };
   A.pLang = (el) => { S().parentLang = el.dataset.v; App.rerender(); };
@@ -47,8 +47,11 @@
   /* X17: printable report for parent evenings */
   V['w/report'] = function () {
     const s = S(), r = s.review, total = App.total(), max = D.exam.max;
-    const pts = D.history.math.concat(s.released ? [{ d: D.exam.date, s: total }] : []);
     const L = window.L;
+    // Direct navigation to the printable URL must respect release and the parent's opt-in.
+    if (!s.released || !r.toParent) return printFrame(L['rep.title'][0] + ' · ' + L['rep.title'][1],
+      '<p class="muted">' + t('par.none') + '</p>');
+    const pts = D.history.math.concat([{ d: D.exam.date, s: total }]);
     return printFrame(L['rep.title'][0] + ' · ' + L['rep.title'][1],
       '<p class="nameline"><strong>' + D.student.name + '</strong> · ' + L['par.grade'][0] + ' ' + D.student.grade + '</p>' +
       '<h2>' + L['par.latest'][0] + ' / ' + L['par.latest'][1] + '</h2><p><strong>' + (s.released ? total + ' / ' + max : '–') + '</strong> · ' + esc(D.exam.title.en) + ' / ' + esc(D.exam.title.de) + '</p>' +

@@ -12,8 +12,8 @@
       lang: 'en', mode: 'reader', tags: false,
       a11y: { large: false, contrast: false, dys: false },
       sendStep: 1, examChoice: 'fractions', examLang: 'DE', shots: 0,
-      exam: { status: 'notsent', pages: [], rescan: false, rescanNote: '' },
-      verify: { q: 0, sel: null, resolved: {}, text: {}, undo: [], rescanOpen: false },
+      exam: { status: 'notsent', pages: [], rescan: false, rescanPending: false, rescanNote: '' },
+      verify: { q: 0, sel: null, resolved: {}, text: {}, answerLang: {}, undo: [], rescanOpen: false },
       grade: { steps: null, confirmed: false },
       review: {
         gap: null, gapName: null, gapMistake: null, gapEdit: false,
@@ -21,7 +21,7 @@
         fbTab: 'both', fbEn: null, fbDe: null, practice: 'compare', toStudent: true, toParent: true
       },
       released: false,
-      practice: { answers: {}, done: false, streak: 4 },
+      practice: { answers: {}, done: false, streak: 4, index: 0 },
       notifs: [],
       extraRows: [],
       qfilter: { status: 'all', lang: 'all', flagged: false },
@@ -33,7 +33,21 @@
     };
   }
   function load() {
-    try { const s = localStorage.getItem(KEY); if (s) return Object.assign(initial(), JSON.parse(s)); } catch (e) {}
+    try {
+      const saved = localStorage.getItem(KEY);
+      if (saved) {
+        const old = JSON.parse(saved), base = initial();
+        if (!old || typeof old !== 'object') return base;
+        const state = Object.assign({}, base, old);
+        for (const part of ['exam', 'verify', 'grade', 'review', 'practice', 'a11y', 'settings'])
+          state[part] = Object.assign({}, base[part], old[part] || {});
+        state.settings.gap = Object.assign({}, base.settings.gap, (old.settings || {}).gap || {});
+        state.verify.answerLang = state.verify.answerLang || {};
+        // There is only one complete mock exam; older demos could choose an incomplete Plants flow.
+        state.examChoice = 'fractions';
+        return state;
+      }
+    } catch (e) {}
     return initial();
   }
   App.state = load();
@@ -123,8 +137,19 @@
     } catch (e) {}
   };
   App.listen = (text) => '<button class="listen" data-act="listen" data-say="' + App.esc(text) + '" aria-label="' + t('listen.label') + '">' + ic('speaker', 22) + '</button>';
+  // Student/parent notifications created during quiet hours wait until the next permitted viewing period.
+  // The prototype has no background push-notification service.
+  App.isQuietNow = function (date) {
+    const st = S().settings, d = date || new Date();
+    const minutes = (value) => { const p = String(value).split(':').map(Number); return p[0] * 60 + p[1]; };
+    const from = minutes(st.quietFrom), to = minutes(st.quietTo), now = d.getHours() * 60 + d.getMinutes();
+    if (![from, to, now].every(Number.isFinite) || from === to) return false;
+    return from < to ? now >= from && now < to : now >= from || now < to;
+  };
+  App.visibleNotifs = (to) => S().notifs.filter((n) => n.to === to && (!n.deferred || !App.isQuietNow()));
   App.notify = function (to, key, vars) {
-    S().notifs.unshift({ id: Date.now() + Math.random(), to: to, key: key, vars: vars || null, read: false, time: App.timeLabel() });
+    S().notifs.unshift({ id: Date.now() + Math.random(), to: to, key: key, vars: vars || null,
+      read: false, deferred: to !== 'teacher' && App.isQuietNow(), time: App.timeLabel() });
   };
   App.timeLabel = function () { const d = new Date(); return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); };
 
@@ -171,7 +196,7 @@
     return '<span class="langsw" data-tag="U2.1"><button class="' + (s.lang === 'en' ? 'on' : '') + '" data-act="lang" data-l="en" aria-label="English">EN</button><button class="' + (s.lang === 'de' ? 'on' : '') + '" data-act="lang" data-l="de" aria-label="Deutsch">DE</button></span>';
   }
   App.langSwitch = langSwitch;
-  App.unread = (to) => S().notifs.filter((n) => n.to === to && !n.read).length;
+  App.unread = (to) => App.visibleNotifs(to).filter((n) => !n.read).length;
   function bell(to, route) {
     const n = App.unread(to);
     return '<button class="iconbtn bellbtn" data-act="go" data-r="' + route + '" aria-label="' + t('notif.title') + '">' + ic('bell', 24) + (n ? '<b class="badge">' + n + '</b>' : '') + '</button>';
