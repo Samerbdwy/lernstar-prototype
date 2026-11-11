@@ -23,6 +23,7 @@
       released: false,
       practice: { answers: {}, done: false, streak: 4, index: 0 },
       notifs: [],
+      messages: [], messageRecipient: D.student.name, messageDraft: '', studentReplyDraft: '',
       extraRows: [],
       qfilter: { status: 'all', lang: 'all', flagged: false },
       dashLang: 'all',
@@ -43,6 +44,8 @@
           state[part] = Object.assign({}, base[part], old[part] || {});
         state.settings.gap = Object.assign({}, base.settings.gap, (old.settings || {}).gap || {});
         state.verify.answerLang = state.verify.answerLang || {};
+        state.messages = Array.isArray(state.messages) ? state.messages : [];
+        if (!D.students.some((student) => student.name === state.messageRecipient)) state.messageRecipient = D.student.name;
         // There is only one complete mock exam; older demos could choose an incomplete Plants flow.
         state.examChoice = 'fractions';
         return state;
@@ -119,7 +122,11 @@
   };
 
   /* ---------- helpers ---------- */
-  App.go = function (r) { location.hash = '#/' + r; };
+  App.go = function (r) {
+    // Apply the class default upon entering Student; the child can change it for this session.
+    if (r.startsWith('s/') && !App.route().startsWith('s/')) S().mode = S().settings.defaultMode;
+    location.hash = '#/' + r;
+  };
   App.route = function () { return (location.hash || '#/').replace(/^#\//, '').replace(/^#/, ''); };
   App.toast = function (msg, icon) {
     const box = document.getElementById('toasts'); if (!box) return;
@@ -196,7 +203,22 @@
     return '<span class="langsw" data-tag="U2.1"><button class="' + (s.lang === 'en' ? 'on' : '') + '" data-act="lang" data-l="en" aria-label="English">EN</button><button class="' + (s.lang === 'de' ? 'on' : '') + '" data-act="lang" data-l="de" aria-label="Deutsch">DE</button></span>';
   }
   App.langSwitch = langSwitch;
-  App.unread = (to) => App.visibleNotifs(to).filter((n) => !n.read).length;
+  // Demo-only, same-browser messaging: no actual accounts, network delivery or secure data storage.
+  App.addMessage = function (from, recipient, body) {
+    const clean = String(body || '').trim();
+    if (!clean || clean.length > 500 || (from !== 'teacher' && from !== 'student')) return false;
+    if (from === 'teacher' && !D.students.some((student) => student.name === recipient)) return false;
+    if (from === 'student' && recipient !== D.teacher.name) return false;
+    S().messages.unshift({ id: Date.now() + Math.random(), from: from, to: from === 'teacher' ? 'student' : 'teacher',
+      recipient: recipient, body: clean, time: App.timeLabel(), read: false,
+      deferred: from === 'teacher' && App.isQuietNow() });
+    App.save();
+    return true;
+  };
+  App.messageInbox = (role) => S().messages.filter((m) => m && m.to === role &&
+    (role === 'teacher' || m.recipient === D.student.name));
+  App.unread = (to) => App.visibleNotifs(to).filter((n) => !n.read).length +
+    App.messageInbox(to).filter((m) => !m.read && (!m.deferred || !App.isQuietNow())).length;
   function bell(to, route) {
     const n = App.unread(to);
     return '<button class="iconbtn bellbtn" data-act="go" data-r="' + route + '" aria-label="' + t('notif.title') + '">' + ic('bell', 24) + (n ? '<b class="badge">' + n + '</b>' : '') + '</button>';

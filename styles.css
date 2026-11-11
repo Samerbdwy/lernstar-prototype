@@ -227,3 +227,11 @@ table.rep{width:100%;border:1px solid #000}table.rep th,table.rep td{border:1px 
   .a11y summary span{display:none}
   .s-main,.t-main,.p-main{padding-bottom:110px}
 }
+/* Local-only conversation prototype */
+.chat-compose{max-width:850px}
+.chat-compose textarea{min-height:105px;resize:vertical}
+.chat-list li{align-items:flex-start}
+.chat-list .chat-symbol{color:var(--teal);margin-top:2px}
+.notifs li .chat-content{min-width:0;flex:1;display:block}
+.chat-body{white-space:pre-wrap;overflow-wrap:anywhere;margin:6px 0;font-weight:600}
+.chat-list small{display:block;margin-top:3px}

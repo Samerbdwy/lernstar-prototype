@@ -72,3 +72,16 @@ New student notifications created during quiet hours are deferred in the on-scre
 ## AI use
 
 The prototype code and the HTD diagrams were produced with Claude (Anthropic) and reviewed by the team. The full AI chat history is included in the Milestone 3 submission PDF (Appendix B), as the course brief requires.
+
+## Interactive messaging (local-only)
+
+- Teacher → Students → Message now opens a composer. For Youssef A., send a short message, then switch to Student → bell / Messages for you to read it.
+- From Student messages, Write to Ms. Nadine and send a reply; it appears under Teacher → Messages → Messages from Youssef.
+- Teacher messages have an outbox and student messages have a sent-history view. Both persist with localStorage in this browser until Reset demo.
+- Other named students and queue entries are sample-only; queue entries open honest read-only details and sent messages to sample students stay in the teacher outbox. Only Youssef has a simulated student inbox.
+- Teacher → Settings shows live examples of how the mode, repeated-mistake threshold, and quiet hours affect the demo. The chosen default mode is applied on entering Student. Quiet hours defer alert badges, not access to the inbox.
+- This is not a communication service: no genuine accounts, authentication, background jobs, server, secure storage or message delivery.
+
+Run both suites:
+
+    node --test tests/review.test.cjs tests/messaging.test.cjs

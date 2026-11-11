@@ -53,3 +53,12 @@ Open http://localhost:8000 (or use the free port shown by Python). Click **Reset
 ## Handoff decision
 
 The interactive **main Fractions demo** has been exercised and is substantially more consistent with its requirements. The academic real-interview blocker and final submission permissions/video/user testing cannot be resolved through code; they require a team decision and manual evidence. **Do not submit the unchanged upstream deployment as the corrected version.**
+
+## Follow-up UX interaction fixes (11 November 2026)
+
+- Implemented teacher→student messages and student→teacher replies with browser-local persistence and unread counts. Student inbox is the Youssef demo only; other student recipients are clearly marked sample-only outbox items.
+- Teacher queue sample rows now open read-only data previews instead of inert toast messages.
+- Added Teacher Settings effect preview, clamped thresholds to 1–6 and apply the saved class default upon re-entering Student.
+- Clarified quiet hours only defer alert badges; users may still open messages. No background delivery or server messages.
+- Added tests/messaging.test.cjs (10 tests) alongside the 11 original tests. Manual browser verification included cross-role send/reply and mobile Settings view. Existing academic and publishing blockers above remain unchanged.
+- To recheck: run node --test tests/review.test.cjs tests/messaging.test.cjs.
