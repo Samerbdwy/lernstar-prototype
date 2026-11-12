@@ -24,7 +24,7 @@
   function queueTable(rows) {
     if (!rows.length) return '<p class="muted pad">' + t('q.none') + '</p>';
     return '<div class="tablewrap"><table class="q"><thead><tr><th>' + t('q.student') + '</th><th>' + t('q.exam') + '</th><th data-tag="U2.2">' + t('q.lang') + '</th><th data-tag="T1">' + t('q.status') + '</th><th>' + t('q.flag') + '</th></tr></thead><tbody>' +
-      rows.map((r) => '<tr class="' + (r.live ? 'live' : '') + '" data-act="openRow" data-id="' + r.id + '" tabindex="0"><td><strong>' + esc(r.name) + '</strong></td><td>' + esc(pickAdd(r.exam)) + '</td><td><span class="lg">' + r.lang + '</span></td><td>' + statusPill(r.status) + '</td><td>' + (r.flag ? '<span class="flagdot" title="' + t('q.flag') + '">!</span>' : '') + '</td></tr>').join('') + '</tbody></table></div>';
+      rows.map((r) => '<tr class="' + (r.live ? 'live' : '') + '" data-act="openRow" data-id="' + r.id + '" tabindex="0" role="button"><td><strong>' + esc(r.name) + '</strong></td><td>' + esc(pickAdd(r.exam)) + '</td><td><span class="lg">' + r.lang + '</span></td><td>' + statusPill(r.status) + '</td><td>' + (r.flag ? '<span class="flagdot" title="' + t('q.flag') + '">!</span>' : '') + '</td></tr>').join('') + '</tbody></table></div>';
   }
   A.openRow = (el) => {
     const id = el.dataset.id; const s = S();
@@ -33,6 +33,11 @@
     else if (s.exam.status === 'verified') App.go(s.grade.confirmed ? 't/review' : 't/confirm');
     else App.go('t/review');
   };
+  // Queue rows can be opened with keyboard as well as a mouse.
+  document.addEventListener('keydown', (e) => {
+    const row = e.target.closest && e.target.closest('tr[data-act="openRow"]');
+    if (row && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); A.openRow(row); }
+  });
   const cnt = (rows, st) => rows.filter((r) => r.status === st).length;
 
   /* ---------- dashboard (WF5) ---------- */
@@ -105,7 +110,8 @@
       '<div class="row"><button class="btn" data-act="saveWord">' + ic('check', 18) + t('vf.save') + '</button><button class="btn ghost" data-act="keepWord">' + t('vf.right') + '</button><button class="btn ghost" data-act="cancelWord">' + t('cancel') + '</button></div></div>' : '';
     const dec = Q.decimal ? (v.resolved[qi + ':dec'] ? '<p class="decok">' + ic('check', 16) + t('vf.dec.ok') + '</p>' :
       '<div class="decimal" data-tag="U2.3"><strong>' + t('vf.dec.t') + '</strong><span>' + t('vf.dec.d') + '</span><button class="btn sm" data-act="decOk">' + t('vf.dec.b') + '</button></div>') : '';
-    const lang = '<label class="langtag" data-tag="U2.2">' + t('vf.langtag') + '<select data-in="ansLang" aria-label="' + t('vf.langtag') + '"><option ' + (s.examLang === 'DE' ? 'selected' : '') + ' value="DE">Deutsch</option><option value="EN" ' + (s.examLang === 'EN' ? 'selected' : '') + '>English</option><option value="MIX">' + t('vf.mix') + '</option></select></label>';
+    const selectedAns = v.answerLang[qi] || s.examLang;
+    const lang = '<label class="langtag" data-tag="U2.2">' + t('vf.langtag') + '<select data-in="ansLang" aria-label="' + t('vf.langtag') + '"><option ' + (selectedAns === 'DE' ? 'selected' : '') + ' value="DE">Deutsch</option><option value="EN" ' + (selectedAns === 'EN' ? 'selected' : '') + '>English</option><option value="MIX" ' + (selectedAns === 'MIX' ? 'selected' : '') + '>' + t('vf.mix') + '</option></select></label>';
     const left_ = left();
     const chips = D.exam.questions.map((x, i) => {
       const pend = flagKeys().some((f) => f.q === i && !v.resolved[f.k]);
@@ -153,15 +159,16 @@
   };
   A.verified = () => {
     const s = S(), l = left();
+    if (s.exam.rescanPending) { App.toast(t('vf.awaitRescan'), 'flag'); return; }
     if (l.length) { App.toast(t('vf.stillleft', { n: l.length }), 'flag'); A.nextUncertain(); return; }
     s.exam.status = 'verified'; App.steps(); App.notify('teacher', 'n.graded'); App.toast(t('vf.sent'), 'check'); App.go('t/confirm');
   };
-  I.ansLang = () => {};
+  I.ansLang = (el) => { S().verify.answerLang[S().verify.q] = el.value; App.save(); };
   A.rescanOpen = () => { S().verify.rescanOpen = true; App.rerender(); };
   A.rescanClose = () => { S().verify.rescanOpen = false; App.rerender(); };
   A.rescanSend = () => {
     const s = S(), n = document.getElementById('rescanNote');
-    s.exam.rescanNote = n ? n.value : ''; s.exam.rescan = true; s.verify.rescanOpen = false;
+    s.exam.rescanNote = n ? n.value : ''; s.exam.rescan = true; s.exam.rescanPending = true; s.verify.rescanOpen = false;
     App.notify('student', 'n.rescan'); App.toast(t('rescan.ok'), 'check'); App.rerender();
   };
 
@@ -185,14 +192,14 @@
   };
   I.step = (el) => { App.steps()[+el.dataset.q][+el.dataset.k] = el.checked; App.rerender(); };
   A.acceptAll = () => { S().grade.steps = D.exam.questions.map((q) => q.steps.map((x) => x.ai)); App.toast(t('cf.accepted'), 'check'); App.rerender(); };
-  A.confirmGrades = () => { S().grade.confirmed = true; App.toast(t('cf.confirmed'), 'check'); App.go('t/review'); };
+  A.confirmGrades = () => { if (S().exam.status !== 'verified') return; S().grade.confirmed = true; App.toast(t('cf.confirmed'), 'check'); App.go('t/review'); };
   A.exportCsv = () => {
     const lines = ['student,exam,question,points,max'];
     D.exam.questions.forEach((Q, i) => lines.push([D.student.name, pickAdd(D.exam.title), i + 1, App.qScore(i), App.qMax(i)].map((x) => '"' + String(x).replace(/"/g, '""') + '"').join(',')));
     lines.push(['"' + D.student.name + '"', '"total"', '""', App.total(), D.exam.max].join(','));
     try {
       const b = new Blob([lines.join('\n')], { type: 'text/csv' }), a = document.createElement('a');
-      a.href = URL.createObjectURL(b); a.download = 'confirmed-grades-4B.csv'; document.body.appendChild(a); a.click(); a.remove();
+      a.href = URL.createObjectURL(b); a.download = S().grade.confirmed ? 'confirmed-grades-4B.csv' : 'draft-grades-4B.csv'; document.body.appendChild(a); a.click(); a.remove();
     } catch (e) {}
     App.toast(t('cf.exported'), 'download');
   };
@@ -204,10 +211,12 @@
     if (!s.grade.confirmed) return '<div class="card center"><h1>' + t('rv.first.t') + '</h1><p>' + t('rv.first.d') + '</p><a class="btn" href="#/t/' + (s.exam.status === 'sent' ? 'verify' : 'confirm') + '">' + t('rv.first.b') + '</a></div>';
     const msgEn = r.fbEn === null ? t('fb.en.default') : r.fbEn, msgDe = r.fbDe === null ? t('fb.de.default') : r.fbDe;
     const gapDone = r.gap !== null, flagDone = r.flag !== null;
+    // The example has two matching errors in this exam and evidence across three consecutive exams.
+    const gapRuleMatched = 2 >= s.settings.gap[4] || 3 >= s.settings.gap[4];
     const ev = D.evidence.map((e) => '<div class="ev"><b>' + esc(pickAdd(e.where)) + '</b><span>' + esc(pickAdd(e.text)) + '</span></div>').join('');
     const tag = (st, k) => st ? '<span class="decision ' + st + '">' + ic(st === 'confirmed' ? 'check' : 'x', 14) + t(k + '.' + st) + '</span>' : '';
     const gap = '<section class="card gapcard" data-tag="X1"><p class="eyebrow">' + t('rv.gap') + '</p><h2 class="gapname" data-tag="U2.5">' + esc(App.gapName()) + ' <small>' + t('gap.name.other') + '</small></h2>' +
-      '<div class="meta"><span class="chip">' + t('rv.conf') + '</span><span class="muted small" data-tag="X14">' + t('rv.rule', { n: s.settings.gap[4] }) + '</span></div>' +
+      '<div class="meta"><span class="chip">' + t(gapRuleMatched ? 'rv.conf' : 'rv.rule.unmet') + '</span><span class="muted small" data-tag="X14">' + t('rv.rule', { n: s.settings.gap[4] }) + '</span></div>' +
       '<p class="eyebrow">' + t('rv.mistake') + '</p>' + (r.gapEdit ? '<textarea id="gapEdit" rows="3">' + esc(App.gapMistake()) + '</textarea><div class="row"><button class="btn sm" data-act="gapSave">' + t('vf.save') + '</button></div>' : '<p>' + esc(App.gapMistake()) + '</p>') +
       '<p class="eyebrow">' + t('rv.evidence') + '</p>' + ev + tag(r.gap, 'dec') +
       '<div class="row"><button class="btn" data-act="gapDo" data-v="confirmed">' + t('act.confirm') + '</button><button class="btn ghost" data-act="gapEdit">' + t('act.edit') + '</button><button class="btn ghost" data-act="gapDo" data-v="dismissed">' + t('act.dismiss') + '</button></div></section>';
@@ -223,6 +232,7 @@
       (r.fbTab !== 'en' ? '<label class="field"><span>DE</span><textarea data-in="fb" data-l="de" rows="4">' + esc(msgDe) + '</textarea></label>' : '') +
       '<label class="field"><span>' + t('rv.prac') + '</span><select data-in="practice"><option value="compare">' + t('pt.compare') + '</option><option value="line" ' + (r.practice === 'line' ? 'selected' : '') + '>' + t('pt.line') + '</option><option value="word" ' + (r.practice === 'word' ? 'selected' : '') + '>' + t('pt.word') + '</option></select></label>' +
       '<div class="row"><span class="muted">' + t('rv.sendto') + '</span><label class="tog"><input type="checkbox" data-in="toStudent" checked disabled><span>' + t('role.student') + '</span></label><label class="tog"><input type="checkbox" data-in="toParent" ' + (r.toParent ? 'checked' : '') + '><span>' + t('role.parent') + '</span></label></div>' +
+      '<button class="btn ghost wide" data-act="exportCsv" data-tag="X11">' + ic('download', 18) + t('cf.export') + '</button>' +
       '<a class="btn ghost wide" href="#/w/worksheet" target="_blank" rel="noopener" data-tag="X7">' + ic('print', 18) + t('rv.sheet') + '</a>' +
       (s.released ? '' : '<button class="btn big wide release" data-act="release" ' + (gapDone && flagDone ? '' : 'disabled') + '>' + ic('right', 20) + t('rv.release') + '</button>' + (gapDone && flagDone ? '' : '<p class="muted small">' + t('rv.needs') + '</p>')) + '</section>';
     const done = s.released ? '<div class="banner good" data-demo="1">' + ic('check', 26) + '<div><strong>' + t('rv.released.t') + '</strong><span>' + t('rv.released.d') + '</span></div><a class="btn dark" href="#/s/results">' + t('rv.see.s') + '</a><a class="btn ghost" href="#/p/home">' + t('rv.see.p') + '</a></div>' : '';
@@ -243,7 +253,9 @@
   I.practice = (el) => { S().review.practice = el.value; App.save(); };
   I.toParent = (el) => { S().review.toParent = el.checked; App.save(); };
   A.release = () => {
-    const s = S(); if (s.released) return;
+    const s = S();
+    if (s.released || s.exam.status !== 'verified' || !s.grade.confirmed ||
+      s.review.gap === null || s.review.flag === null || s.exam.rescanPending) return;
     s.released = true; s.exam.status = 'released'; App.notify('student', 'n.result'); App.notify('teacher', 'n.released');
     App.toast(t('rv.released.t'), 'check'); App.rerender();
   };

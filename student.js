@@ -2,7 +2,7 @@
 (function () {
   'use strict';
   const App = window.App, D = window.DATA, t = App.t, ic = App.icon, esc = App.esc, S = () => App.state;
-  const V = App.views, A = App.act;
+  const V = App.views, A = App.act, I = App.inp;
 
   /* ---------- landing ---------- */
   V[''] = function () {
@@ -30,7 +30,7 @@
   /* ---------- home (WF1) ---------- */
   V['s/home'] = function () {
     const s = S();
-    const unreadResult = s.notifs.some((n) => n.to === 'student' && !n.read && n.key === 'n.result');
+    const unreadResult = App.visibleNotifs('student').some((n) => !n.read && n.key === 'n.result');
     let banner = '';
     if (s.exam.rescan) {
       banner = '<div class="banner warn">' + ic('camera', 26) + '<div><strong>' + t('s.rescan.t') + '</strong><span>' + t('s.rescan.d') + '</span></div>' +
@@ -55,7 +55,10 @@
       '<section class="card"><h2>' + t('s.next') + '</h2><p><strong>' + t('s.next.exam') + '</strong><br><span class="muted">' + t('s.next.date') + '</span></p><span class="chip">' + t('s.next.topic') + '</span></section></aside></div>';
   };
   A.openResult = () => { S().notifs.forEach((n) => { if (n.to === 'student') n.read = true; }); App.go('s/results'); };
-  A.rescanDone = () => { S().exam.rescan = false; App.toast(t('s.rescan.ok'), 'check'); App.rerender(); };
+  A.rescanDone = () => {
+    S().exam.rescan = false; S().exam.rescanPending = false;
+    App.toast(t('s.rescan.ok'), 'check'); App.rerender();
+  };
 
   /* ---------- send an exam (WF2, 3 steps) ---------- */
   function stepper(step) {
@@ -65,6 +68,7 @@
   function pageThumb(p, i) {
     return '<div class="page' + (p.blurry ? ' blurry' : '') + '"><div class="paper"><svg viewBox="0 0 80 100" aria-hidden="true"><path d="M10 20c10-6 14 6 24 0s14 6 24 0M10 40c10-6 14 6 24 0s14 6 24 0M10 60c10-6 14 6 24 0s14 6 24 0M10 80c10-6 14 6 24 0" fill="none" stroke="currentColor" stroke-width="2"/></svg></div>' +
       '<span class="pn">' + t('send.page') + ' ' + (i + 1) + '</span>' +
+      (p.filename ? '<small class="muted">' + esc(p.filename) + '</small>' : '') +
       (p.blurry ? '<span class="bad">' + t('send.blurry') + '</span><button class="btn sm" data-act="retake" data-i="' + i + '">' + ic('camera', 16) + t('send.retake') + '</button>' : '<span class="ok">' + ic('check', 14) + t('send.clear') + '</span>') + '</div>';
   }
   V['s/send'] = function () {
@@ -75,8 +79,10 @@
     }
     const step = s.sendStep; let body = '';
     if (step === 1) {
-      const ex = (id, key, lang) => '<button class="choice' + (s.examChoice === id ? ' on' : '') + '" data-act="pickExam" data-id="' + id + '" data-lang="' + lang + '">' + ic('file', 40) +
-        '<strong>' + t(key) + '</strong><span>' + (lang === 'DE' ? 'Deutsch' : 'English') + '</span></button>';
+      const ex = (id, key, lang) => '<button class="choice' + (s.examChoice === id ? ' on' : '') + '" data-act="pickExam" data-id="' + id + '" data-lang="' + lang + '"' +
+        (id === 'fractions' ? '' : ' disabled title="' + esc(t('send.preview')) + '"') + '>' + ic('file', 40) +
+        '<strong>' + t(key) + '</strong><span>' + (lang === 'DE' ? 'Deutsch' : 'English') +
+        (id !== 'fractions' ? ' · ' + t('send.preview') : '') + '</span></button>';
       body = '<div class="card"><h2>' + t('send.pick') + ' ' + App.listen(t('send.pick')) + '</h2><div class="choices">' + ex('fractions', 'ex.fractions', 'DE') + ex('plants', 'ex.plants', 'EN') + '</div>' +
         '<div class="field"><span>' + t('send.examlang') + '</span><div class="bigseg" data-tag="U2.2"><button class="' + (s.examLang === 'EN' ? 'on' : '') + '" data-act="examLang" data-v="EN">English</button>' +
         '<button class="' + (s.examLang === 'DE' ? 'on' : '') + '" data-act="examLang" data-v="DE">Deutsch</button></div></div>' +
@@ -87,7 +93,7 @@
       const anyBlur = pages.some((p) => p.blurry);
       body = '<div class="two"><div class="card"><div class="cam" data-tag="U1.6"><i class="c tl"></i><i class="c tr"></i><i class="c bl"></i><i class="c br"></i>' +
         '<p>' + t('cam.place') + '</p><span class="camhint">' + hint + '</span></div>' +
-        '<div class="row"><button class="btn xl" data-act="shot">' + ic('camera', 24) + t('send.take') + '</button><button class="btn ghost xl" data-act="shot" data-up="1">' + ic('upload', 24) + t('send.upload') + '</button></div></div>' +
+        '<div class="row"><button class="btn xl" data-act="shot">' + ic('camera', 24) + t('send.take') + '</button><label class="btn ghost xl">' + ic('upload', 24) + t('send.upload') + '<input type="file" accept="image/*,application/pdf" multiple hidden data-in="studentFile"></label></div><p class="muted small">' + t('send.mock') + '</p></div>' +
         '<div class="card"><h2>' + t('send.mypages') + ' <small>' + t('send.count', { n: pages.length }) + '</small> ' + App.listen(t('send.count', { n: pages.length })) + '</h2>' +
         '<div class="pages">' + pages.map(pageThumb).join('') + '<div class="page add"><span>' + ic('plus', 28) + '</span><em>' + t('send.add') + '</em></div></div>' +
         (anyBlur ? '<p class="warnline">' + ic('flag', 16) + t('send.fixblur') + '</p>' : '<p class="muted">' + t('send.tip') + '</p>') +
@@ -101,13 +107,22 @@
     }
     return '<h1>' + t('s.tile.send') + '</h1>' + stepper(step) + body;
   };
-  A.pickExam = (el) => { S().examChoice = el.dataset.id; S().examLang = el.dataset.lang; App.rerender(); };
+  A.pickExam = (el) => {
+    if (el.dataset.id !== 'fractions') { App.toast(t('send.preview'), 'file'); return; }
+    S().examChoice = el.dataset.id; S().examLang = el.dataset.lang; App.rerender();
+  };
   A.examLang = (el) => { S().examLang = el.dataset.v; App.rerender(); };
   A.step = (el) => { S().sendStep = +el.dataset.n; App.rerender(); };
   A.shot = (el) => {
     const s = S(); const n = s.exam.pages.length;
     if (n >= 6) return;
     s.exam.pages.push({ id: ++s.shots, blurry: n === 1 && !s.exam.retook });
+    App.rerender();
+  };
+  I.studentFile = (el) => {
+    const s = S(), files = Array.from(el.files || []).slice(0, Math.max(0, 6 - s.exam.pages.length));
+    files.forEach((f) => s.exam.pages.push({ id: ++s.shots, blurry: false, filename: f.name }));
+    if (files.length) App.toast(t('send.uploaded', { n: files.length }), 'check');
     App.rerender();
   };
   A.retake = (el) => { const p = S().exam.pages[+el.dataset.i]; p.blurry = false; S().exam.retook = true; App.toast(t('send.retaken'), 'check'); App.rerender(); };
@@ -171,18 +186,31 @@
         '<div class="fracs"><div>' + fracBar(p.a[0], p.a[1]) + '<strong>' + p.a[0] + '/' + p.a[1] + '</strong></div><div>' + fracBar(p.b[0], p.b[1]) + '<strong>' + p.b[0] + '/' + p.b[1] + '</strong></div></div>' +
         '<div class="row">' + btn('a', t('prac.left')) + btn('same', t('prac.same')) + btn('b', t('prac.right')) + '</div>' +
         (a ? '<p class="fb ' + (good ? 'ok' : 'try') + '">' + (good ? ic('check', 18) + t('prac.yes') : t('prac.try')) + '</p>' : '') + '</section>';
-    }).join('');
-    return '<h1>' + t('prac.title') + '</h1><p class="muted">' + t('prac.sub') + '</p><div class="prac-list">' + q + '</div>' +
+    }).filter((_, i) => i === (s.practice.index || 0)).join('');
+    const at = s.practice.index;
+    const nav = '<div class="row between"><button class="btn ghost" data-act="practicePage" data-n="' + (at - 1) + '" ' + (at === 0 ? 'disabled' : '') + '>' + ic('left', 18) + t('back') + '</button>' +
+      '<span class="muted">' + t('prac.step', { n: at + 1, m: PQ.length }) + '</span>' +
+      '<button class="btn ghost" data-act="practicePage" data-n="' + (at + 1) + '" ' + (at === PQ.length - 1 || !ans[at] ? 'disabled' : '') + '>' + t('send.next') + ic('right', 18) + '</button></div>';
+    return '<h1>' + t('prac.title') + '</h1><p class="muted">' + t('prac.sub') + '</p><div class="prac-list">' + q + '</div>' + nav +
       '<div class="row between"><a class="btn ghost" href="#/w/worksheet" target="_blank" rel="noopener" data-tag="X7">' + ic('print', 20) + t('prac.print') + '</a>' +
       (s.practice.done ? '<span class="pill dark">' + ic('check', 16) + t('prac.done') + '</span>' : '<button class="btn xl" data-act="pDone" ' + (answered < 3 ? 'disabled' : '') + '>' + ic('check', 24) + t('prac.mark') + '</button>') + '</div>';
   };
+  A.practicePage = (el) => {
+    S().practice.index = Math.max(0, Math.min(PQ.length - 1, +el.dataset.n));
+    App.rerender();
+  };
   A.pAns = (el) => { S().practice.answers[+el.dataset.i] = el.dataset.v; App.rerender(); };
-  A.pDone = () => { S().practice.done = true; S().practice.streak += 1; App.toast(t('prac.well'), 'star'); App.rerender(); };
+  A.pDone = () => {
+    const answers = S().practice.answers;
+    if (!PQ.every((p, i) => answers[i] === p.ok)) { App.toast(t('prac.retry'), 'target'); return; }
+    if (!S().practice.done) { S().practice.done = true; S().practice.streak += 1; }
+    App.toast(t('prac.well'), 'star'); App.rerender();
+  };
 
   /* ---------- progress (WF4): confirmed results only, points not percentages ---------- */
-  App.progressChart = function (subject, w, h) {
+  App.progressChart = function (subject, w, h, includeCurrent = true) {
     const s = S(); const pts = D.history[subject].slice();
-    if (subject === 'math' && s.released) pts.push({ d: D.exam.date, s: App.total() });
+    if (subject === 'math' && s.released && includeCurrent) pts.push({ d: D.exam.date, s: App.total() });
     const W = w || 560, H = h || 260, L = 44, R = 20, T = 24, B = 40, max = 11;
     const x = (i) => L + (pts.length === 1 ? (W - L - R) / 2 : (i * (W - L - R)) / (pts.length - 1));
     const y = (v) => T + (H - T - B) * (1 - v / max);
@@ -207,7 +235,7 @@
 
   /* ---------- notifications ---------- */
   V['s/notifs'] = function () {
-    const s = S(); const list = s.notifs.filter((n) => n.to === 'student');
+    const s = S(); const list = App.visibleNotifs('student');
     const html = '<h1>' + t('notif.title') + '</h1>' + (list.length ? '<ul class="notifs">' + list.map((n) =>
       '<li class="' + (n.read ? '' : 'new') + '">' + ic(n.key === 'n.result' ? 'star' : n.key === 'n.rescan' ? 'camera' : 'bell', 26) + '<div><strong>' + t(n.key) + '</strong><span class="muted">' + t('res.today') + ' ' + n.time + '</span></div>' +
       (n.key === 'n.result' ? '<a class="btn sm dark" href="#/s/results">' + t('s.open') + '</a>' : '') + '</li>').join('') + '</ul>' : '<div class="card center"><p class="lead">' + t('notif.none') + '</p></div>') +

@@ -222,4 +222,16 @@ table.rep{width:100%;border:1px solid #000}table.rep th,table.rep td{border:1px 
   .topbar{padding:8px 12px;gap:8px}.brand em{display:none}.brand{font-size:1.1rem}.langsw button{padding:6px 9px}.avatar{width:32px;height:32px}
   .tiles{grid-template-columns:1fr}.tile{min-height:150px}.tile-ic{width:70px;height:70px}.bar,.heat{grid-template-columns:1fr}.heat em{text-align:left}
   .s-main h1{font-size:1.7rem}.demobar{font-size:.78rem;gap:6px}.camhint{white-space:normal;width:90%;text-align:center}.topic{grid-template-columns:1fr}.btn.xl{width:100%}
+  /* Keep the accessibility control reachable without covering a child's content. */
+  .a11y summary{padding:9px;min-height:44px;min-width:44px;justify-content:center}
+  .a11y summary span{display:none}
+  .s-main,.t-main,.p-main{padding-bottom:110px}
 }
+/* Local-only conversation prototype */
+.chat-compose{max-width:850px}
+.chat-compose textarea{min-height:105px;resize:vertical}
+.chat-list li{align-items:flex-start}
+.chat-list .chat-symbol{color:var(--teal);margin-top:2px}
+.notifs li .chat-content{min-width:0;flex:1;display:block}
+.chat-body{white-space:pre-wrap;overflow-wrap:anywhere;margin:6px 0;font-weight:600}
+.chat-list small{display:block;margin-top:3px}

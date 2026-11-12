@@ -35,7 +35,7 @@ The grey **Prototype demo** bar on top switches between Student, Teacher and Par
 1. **Student** → "I am a student" → Let's go → *Send my exam* → Next → *Take photo* three times (page 2 is blurry, tap *Retake*) → Next → *Send to my teacher*.
 2. Open *My results*: the grade is hidden ("Ms. Nadine is checking your exam").
 3. Switch to **Teacher** → dashboard → click Youssef's row → **Verify text**: tap the dashed words (Q3 "gröber", Q6 "Eintausand", Q8 "40"), correct them, confirm the decimal comma on Q4 (use *Next uncertain*) → *Verified: send to AI grading*.
-4. **Review the AI grade**: tick the "Unit written" step on Q4 (score changes, 7/11 → 8/11) → *Export to spreadsheet* (downloads a CSV) → *Confirm grades*.
+4. **Review the AI grade**: tick the "Decimal-comma notation correct" step on Q4 (score changes, 7/11 → 8/11) → *Export to spreadsheet* (downloads a CSV) → *Confirm grades*.
 5. **Gap, red flag, feedback**: *Confirm* the gap, *Confirm flag*, choose EN / DE / Both, *Release to student*.
 6. Switch to **Student**: the green banner appears → *Open* → "8 of 11", things to practise, extra help from the teacher → *Start practice*, *My progress*.
 7. Switch to **Parent**: confirmed result, weekly summary (EN/DE), printable report.
@@ -57,6 +57,11 @@ Shortcut: on the teacher dashboard, **Load sample exam** adds Youssef's exam wit
 | `parent.js` | Parent view and the two printable pages |
 
 State is kept in the browser's `localStorage` (use **Reset demo** to clear it).
+The practice screen shows one question at a time for the child-centred interaction requirement.
+The student upload picker accepts image/PDF filenames as mock pages; **no file contents are sent or OCR-processed**.
+The camera flow, login, batch recognition, Friday email and AI scores are simulations.
+Only the Fractions exam is an end-to-end scenario; the Plants card is disabled rather than silently showing the wrong grading flow.
+New student notifications created during quiet hours are deferred in the on-screen Messages list until the next non-quiet viewing period; there is no real push service.
 
 ## Scope notes
 
@@ -67,3 +72,16 @@ State is kept in the browser's `localStorage` (use **Reset demo** to clear it).
 ## AI use
 
 The prototype code and the HTD diagrams were produced with Claude (Anthropic) and reviewed by the team. The full AI chat history is included in the Milestone 3 submission PDF (Appendix B), as the course brief requires.
+
+## Interactive messaging (local-only)
+
+- Teacher → Students → Message now opens a composer. For Youssef A., send a short message, then switch to Student → bell / Messages for you to read it.
+- From Student messages, Write to Ms. Nadine and send a reply; it appears under Teacher → Messages → Messages from Youssef.
+- Teacher messages have an outbox and student messages have a sent-history view. Both persist with localStorage in this browser until Reset demo.
+- Other named students and queue entries are sample-only; queue entries open honest read-only details and sent messages to sample students stay in the teacher outbox. Only Youssef has a simulated student inbox.
+- Teacher → Settings shows live examples of how the mode, repeated-mistake threshold, and quiet hours affect the demo. The chosen default mode is applied on entering Student. Quiet hours defer alert badges, not access to the inbox.
+- This is not a communication service: no genuine accounts, authentication, background jobs, server, secure storage or message delivery.
+
+Run both suites:
+
+    node --test tests/review.test.cjs tests/messaging.test.cjs
